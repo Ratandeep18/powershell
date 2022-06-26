@@ -36,8 +36,8 @@ Get-ChildItem -Filter 'KA_UNKNOWN*.zip' | Where-Object { $_ -match 'Ka_UNK.*_\wN
             if (-not (Test-Path $path)) {
                 mkdir $path
             }
-            Move-Item -Path $_.fullname  -Destination $path -Force -Verbose
-            break
+            Move-Item -Path $_.fullname  -Destination $path -Force -Verbose;
+            break;
         }
     }       
 };
