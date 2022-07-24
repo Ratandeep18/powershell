@@ -22,6 +22,8 @@ cmd /c "dir /b" | Select-String -Pattern 'KA_' | Select-String -Pattern '.zip' |
 #last logs of files in pub failure
 $ka_logs = Get-Content "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.txt"
 
+$global:move_ahead=$true;
+
 # start-transcript
 Start-Transcript -Path $logl;
 
@@ -32,28 +34,41 @@ if ($file_count -gt 0) {
     Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure' -Filter KA_United* | ForEach-Object {
         for ($i = 0; $i -eq $ka_logs.Length; $i++) {
             $name = $_.BaseName;
-            if (-not ($name -eq $ka_logs[$i])) {
+            if ($name -eq $ka_logs[$i]) {
+                $global:move_ahead = $false;
+                break;
+            }}
+            if ($global:move_ahead -eq $true) { 
                 Move-Item -Destination 'C:\Shares\FileRouteDirectories' -Force -Verbose;
+
+                break;
             }
-        }
     }
-    #Jetblue FILES
+    #Jetblue FILES 
     Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure' -Filter KA_JetBlue* | ForEach-Object {
         for ($i = 0; $i -eq $ka_logs.Length; $i++) {
             $name = $_.BaseName;
-            if (-not ($name -eq $ka_logs[$i])) {
+            if ($name -eq $ka_logs[$i]) {
+                $global:move_ahead = $false;
+                break;
+            }}
+            if ($global:move_ahead -eq $true) { 
                 Move-Item -Destination 'C:\Shares\JB KA' -Force -Verbose;
+                break;
             }
-        }
     }
-    #Spirit FILES
+    #Spirit FILES 
     Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure' -Filter KA_Spirit* | ForEach-Object {
         for ($i = 0; $i -eq $ka_logs.Length; $i++) {
             $name = $_.BaseName;
-            if (-not ($name -eq $ka_logs[$i])) {
+            if ($name -eq $ka_logs[$i]) {
+                $global:move_ahead = $false;
+                break;
+            }}
+            if ($global:move_ahead -eq $true) { 
                 Move-Item -Destination 'C:\Shares\SpiritKA' -Force -Verbose;
+                break;
             }
-        }
     }
     Clear-Content "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.txt";
     Get-Content "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.temp" | Set-Content -Path "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.txt";
