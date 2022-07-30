@@ -1,13 +1,11 @@
-#Path set for KA logs moved
+# Script Logs
 $logl = "C:\scripts\greenarrow_pub_failure_logs\" + "ka_logs_" + (Get-date).ToString("yyyy-MM-dd_HH-mm-ss") + ".txt";
-
-# test if the directory exist if not it'll create it
 $log_path = "C:\scripts\greenarrow_pub_failure_logs\";
 if (-not (Test-Path $log_path)) {
     mkdir $log_path
 }
 
-#create catalog file and temp file
+# KA file logs for compare
 $log_file = "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.txt";
 if (-not (Test-Path $log_file)) {
     New-Item -Path "C:\scripts\greenarrow_pub_failure_logs\" -Name "temp_logs_name.txt";
@@ -16,65 +14,90 @@ $temp_file = "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.temp";
 if (-not (Test-Path $temp_file)) {
     New-Item -Path "C:\scripts\greenarrow_pub_failure_logs\" -Name "temp_logs_name.temp";
 }
+
+# Move Logs back for file router
+function move-ka ($global:name) {
+    if ($current_file.name -match 'KA_[Uu][Nn][Ii]\w{3}') {
+        #United Logs
+        Move-item $current_file -Destination 'C:\Shares\FileRouteDirectories' -Force -Verbose;
+    }
+    elseif ($current_file.name -match 'KA_[Ss][Pp][Ii]\w{3}') {
+        #Spirit Logs
+        Move-item $current_file -Destination 'C:\Shares\SpiritKA' -Force -Verbose;
+    }
+    elseif ($current_file.name -match "KA_[Aa][Ii][Rr][Cc]\w{5}") {
+        #AirCanada Logs
+        Move-item $current_file -Destination 'C:\Shares\AirCanadaKA' -Force -Verbose;
+    }
+    else {
+        # Jet Blue, RAM & RBA Logs
+        Move-item $current_file -Destination 'C:\Shares\JB KA' -Force -Verbose;
+    }
+}
+
+# Path & Permision Check
+function path_length_check ($global:name) {
+    $flag_check = $false;
+    $zip_subfile = [io.compression.zipfile]::OpenRead("C:\Shares\JB KA\ErrorFiles\PubFailure\$global:name").Entries.Name
+    if ($flag_check -eq $false) {
+        # Path length check
+        foreach ($ka_item in $zip_subfile) {
+            $max_length = ("C:\Shares\JB KA\ErrorFiles\PubFailure\" + $global:name + "\" + $ka_item);
+            if ($max_length.Length -gt 260) {
+                $flag_check = $true;
+            }
+        }
+        if ($flag_check -eq $true) {
+            Write-Output 'Move to archive'
+        }
+        else {
+            permission_check($global:name)
+        }
+    }
+}
+function permission_check($global:name) {
+    $user_profile = 'ltvasn\nocprod1';
+    $perm_temp = Get-Acl $global:name | Select-Object AccessToString
+    $perm_var = $perm_temp.AccessToString;
+    $flag_check = $false;
+    foreach ($perm in $perm_var) {
+        if ($perm -notmatch $user_profile) {
+            $flag_check = $true;
+        }
+    }
+    if ($flag_check -eq $true) {
+        icacls $global:name /c /t /grant "ltvasn\nocprod1:(ci)(oi)f"
+        Write-Output 'File Permission Changed ' + $user_profile;
+        move-ka($global:name)
+    }
+    else {
+        Write-Output 'Move to archive'
+    }
+}
+
 Set-Location 'C:\Shares\JB KA\ErrorFiles\PubFailure';
 cmd /c "dir /b" | Select-String -Pattern 'KA_' | Select-String -Pattern '.zip' | Out-File -FilePath "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.temp";
 
-#last logs of files in pub failure
 $ka_logs = Get-Content "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.txt"
 
 # start-transcript
 Start-Transcript -Path $logl;
 
-$file_count = (Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure').count
-
-if ($file_count -gt 0) {
-    #UNITED FILES
-    Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure' -Filter KA_United* | ForEach-Object {
-        $global:move_ahead = $true;
-        for ($i = 0; $i -eq $ka_logs.Length; $i++) {
-            $name = $_.BaseName;
-            if ($name -eq $ka_logs[$i]) {
-                $global:move_ahead = $false;
-                break;
-            }
-        }
-        if ($global:move_ahead -eq $true) { 
-            Move-Item -Destination 'C:\Shares\FileRouteDirectories' -Force -Verbose;
+#main
+Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure' -Filter 'KA_*.zip' | ForEach-Object {
+    $global:move_ahead = $true;
+    foreach ($ka_item in $ka_logs) {
+        $global:name = $_.BaseName;
+        if ($global:name -eq $ka_item) {
+            $global:move_ahead = $false;
             break;
         }
     }
-    #Jetblue FILES 
-    Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure' -Filter KA_JetBlue* | ForEach-Object {
-        $global:move_ahead = $true;
-        for ($i = 0; $i -eq $ka_logs.Length; $i++) {
-            $name = $_.BaseName;
-            if ($name -eq $ka_logs[$i]) {
-                $global:move_ahead = $false;
-                break;
-            }
-        }
-        if ($global:move_ahead -eq $true) { 
-            Move-Item -Destination 'C:\Shares\JB KA' -Force -Verbose;
-            break;
-        }
+    if ($global:move_ahead -eq $true) { 
+        move-ka $global:name;
+        break;
     }
-    #Spirit FILES 
-    Get-ChildItem 'C:\Shares\JB KA\ErrorFiles\PubFailure' -Filter KA_Spirit* | ForEach-Object {
-        $global:move_ahead = $true;
-        for ($i = 0; $i -eq $ka_logs.Length; $i++) {
-            $name = $_.BaseName;
-            if ($name -eq $ka_logs[$i]) {
-                $global:move_ahead = $false;
-                break;
-            }
-        }
-        if ($global:move_ahead -eq $true) { 
-            Move-Item -Destination 'C:\Shares\SpiritKA' -Force -Verbose;
-            break;
-        }
+    else {
+        path_length_check($global:name)
     }
-    Clear-Content "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.txt";
-    Get-Content "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.temp" | Set-Content -Path "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.txt";
-    Clear-Content "C:\scripts\greenarrow_pub_failure_logs\temp_logs_name.temp";    
 }
-Stop-Transcript;
